@@ -1,0 +1,72 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #e8e8e8;
+  background: #0f1115;
+  line-height: 1.4;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #1a1d24;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid #2a2f3a;
+}
+
+button {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #2a2f3a;
+  background: #0f1115;
+  color: #e8e8e8;
+  box-sizing: border-box;
+}
+
+pre {
+  overflow: auto;
+  font-size: 0.85rem;
+  background: #0f1115;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #2a2f3a;
+}
+
+.widget-stub {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 320px;
+  max-height: 420px;
+  background: #1a1d24;
+  border: 1px solid #4f46e5;
+  border-radius: 12px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}

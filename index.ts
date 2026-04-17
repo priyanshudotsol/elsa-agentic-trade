@@ -1,51 +1,73 @@
 import "dotenv/config";
 
-import { runElsaAgent } from "./agent/elsaAgent.js";
-import { getLastTrade } from "./agent/memory.js";
-import type { Tweet } from "./tools/types.js";
+import { agentLoopIntervalMs, defaultBtcTopic } from "./agent/config.js";
+import { runTradingPipeline } from "./agent/tradingPipeline.js";
+import { getLastExecutionLog } from "./agent/pipelineMemory.js";
 
-const mockTweets: Tweet[] = [
-  { text: "Trump gaining huge support in swing states", author: "user1" },
-  { text: "Polls show increasing momentum", author: "user2" },
-];
+function parseArgs(): { topic: string; runOnce: boolean } {
+  const raw = process.argv.slice(2).filter((a) => a !== "--");
+  const runOnce =
+    raw.includes("--once") ||
+    process.env.RUN_ONCE?.trim() === "1" ||
+    process.env.RUN_ONCE?.trim()?.toLowerCase() === "true";
+  const topicArg = raw.find((a) => !a.startsWith("--"));
+  return { topic: (topicArg ?? defaultBtcTopic).trim(), runOnce };
+}
 
+/**
+ * CLI: runs the pipeline on a loop (stays open) or once with `--once`.
+ * HTTP API: `npm run dev:server`
+ */
 async function main(): Promise<void> {
-  console.log("\n=== Elsa-powered Polymarket Trading Agent ===\n");
+  const { topic, runOnce } = parseArgs();
+  const intervalMs = agentLoopIntervalMs();
 
-  const { ctx, finalAssistantText } = await runElsaAgent({ tweets: mockTweets });
-
-  console.log("\n--- Output summary ---\n");
-
-  console.log("[sentiment analysis]");
-  if (ctx.sentiment) {
-    console.log(JSON.stringify(ctx.sentiment, null, 2));
+  console.log("\n=== Polymarket trading agent (TypeScript) ===\n");
+  console.log(`Topic: ${topic}`);
+  if (runOnce) {
+    console.log("Mode: single run (--once)\n");
   } else {
-    console.log("(not available — model did not call analyze_sentiment)");
+    console.log(
+      `Mode: loop every ${intervalMs / 1000}s (AGENT_LOOP_INTERVAL_MS). Ctrl+C to stop.\n`
+    );
   }
 
-  console.log("\n[market data]");
-  if (ctx.market) {
-    console.log(JSON.stringify(ctx.market, null, 2));
-  } else {
-    console.log("(not available — model did not call get_market_data)");
+  let iteration = 0;
+
+  const runOne = async (): Promise<void> => {
+    iteration += 1;
+    console.log(`\n──────── Run #${iteration} · ${new Date().toISOString()} ────────\n`);
+    await runTradingPipeline(topic);
+    console.log("\n[last execution log]", getLastExecutionLog() ?? "(none)");
+    console.log("\n─── cycle finished ───\n");
+  };
+
+  process.on("SIGINT", () => {
+    console.log("\n[agent] stopped (SIGINT)");
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    console.log("\n[agent] stopped (SIGTERM)");
+    process.exit(0);
+  });
+
+  if (runOnce) {
+    await runOne();
+    console.log("=== Done ===\n");
+    return;
   }
 
-  console.log("\n[decision / execution]");
-  if (ctx.lastExecution) {
-    const { execution, edge, overridden } = ctx.lastExecution;
-    console.log(`edge: ${edge.toFixed(4)}${overridden ? " (runtime aligned action/size to rules)" : ""}`);
-    console.log(JSON.stringify(execution, null, 2));
-  } else {
-    console.log("(no execute_trade yet — check trace logs above)");
+  for (;;) {
+    try {
+      await runOne();
+    } catch (e: unknown) {
+      console.error("[agent] run failed:", e);
+    }
+    console.log(
+      `Sleeping ${intervalMs / 1000}s until next run… (change AGENT_LOOP_INTERVAL_MS or use --once)\n`
+    );
+    await new Promise((r) => setTimeout(r, intervalMs));
   }
-
-  console.log("\n[explanation]");
-  console.log(finalAssistantText ?? "(no final assistant text)");
-
-  console.log("\n[memory: last trade]");
-  console.log(getLastTrade() ?? "(none)");
-
-  console.log("\n=== Done ===\n");
 }
 
 main().catch((e: unknown) => {
